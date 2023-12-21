@@ -13,7 +13,6 @@ class Field:
     label: str
     precondition: Callable[[Any], bool] | None = None
 
-# TODO: add '' for strings
 def to_string(self):
     lines = [self.__class__.__name__ + "("]
     for name, field in self.__fields__.items():
@@ -85,7 +84,6 @@ class RecordMeta(type):
         setattr(new_cls, "__fields__", fields)
         setattr(new_cls, "__str__", to_string)
         setattr(new_cls, "__setattr__", setattr_)
-        setattr(new_cls, "__annotations", annotations)
 
         return new_cls
 

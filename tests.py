@@ -28,6 +28,7 @@ def to_string(self):
     s = '\n'.join(lines)
     return s
 
+# Ensure that attibutes can't be changed after class is initialized.
 def setattr_(self, name, value):
     if self.__readonly:
         raise(AttributeError())
@@ -42,6 +43,10 @@ def check_precondition(self, name, value):
         raise TypeError()
     return value
 
+# Generate code to execute.
+# Create attibutes and __init__ function definitions.
+# Creates a __readonly attibute that is set to True when __init__ is done.
+# Ensure that attibutes is checked with it's precondition before it is set.
 def generate_code(annotations) -> str:
     lines = ["__readonly = False"]
     lines += [ '{}'.format(
@@ -57,10 +62,11 @@ def generate_code(annotations) -> str:
     code = '\n'.join(lines)
     return code
 
+# Generate a class.
+# Fields are stored in __fields__.
+# When inheriting, annotations and fields are copied to newly created class.
 class RecordMeta(type):
     def __new__(cls, name, bases, attr, **kwargs):
-        # Implement the class creation by manipulating the attr dictionary
-
         fields = {}
         annotations = {}
         if bases:

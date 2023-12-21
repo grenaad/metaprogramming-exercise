@@ -2,8 +2,8 @@ from unittest import TestCase
 import unittest
 from textwrap import dedent
 from dataclasses import dataclass
-from typing import Callable, Any, Dict
-
+from typing import Callable, Any
+import copy
 
 @dataclass
 class Field:
@@ -11,11 +11,86 @@ class Field:
     Defines a field with a label and preconditions
     """
     label: str
-    precondition: Callable[[Any], bool] = None
+    precondition: Callable[[Any], bool] | None = None
 
-# Record and supporting classes here
+# TODO: add '' for strings
+def to_string(self):
+    lines = [self.__class__.__name__ + "("]
+    for name, field in self.__fields__.items():
+        value = getattr(self, name)
+        if type(value) == str:
+             value = "'" + value + "'"
+        lines += [ "  # " + field.label + '\n' +
+                   "  " + name + "=" + str(value)
+                  ]
+        lines += ["", ]
+    lines.pop()
+    lines += [")"]
+    s = '\n'.join(lines)
+    return s
 
-class Record:
+def setattr_(self, name, value):
+    if self.__readonly:
+        raise(AttributeError())
+    else:
+        object.__setattr__(self, name, value)
+
+def check_precondition(self, name, value):
+    precondition = self.__fields__[name].precondition
+    if precondition:
+        if(self.__fields__[name].precondition(value)):
+            return value
+        raise TypeError()
+    return value
+
+def generate_code(annotations) -> str:
+    lines = ["__readonly = False"]
+    lines += [ '{}'.format(
+                "\n".join((f'{arg}: {an.__qualname__}' for arg, an in annotations.items())))
+            ]
+    lines += [ 'def __init__(self, {}):'.format(
+                ', '.join((f'{arg}: {an.__qualname__}' for arg, an in annotations.items())))
+            ]
+    for arg, _ in annotations.items():
+        lines += [ f'  self.{arg} = check_precondition(self, "{arg}", {arg})', ]
+
+    lines += [ '  self.__readonly = True' ]
+    code = '\n'.join(lines)
+    return code
+
+class RecordMeta(type):
+    def __new__(cls, name, bases, attr, **kwargs):
+        # Implement the class creation by manipulating the attr dictionary
+
+        fields = {}
+        annotations = {}
+        if bases:
+            fields = copy.deepcopy(bases[0].__fields__)
+            base_annotations = copy.deepcopy(bases[0].__annotations__)
+            annotations.update(base_annotations)
+
+        if attr.get('__annotations__'):
+            annotations.update(attr.get('__annotations__'))
+
+        if annotations:
+            gen_code = generate_code(annotations)
+            exec(gen_code, globals(), attr)
+            for arg, _ in annotations.items():
+                a = attr.get(arg)
+                if type(a) == Field:
+                    fields[arg] = a
+
+        new_cls = super().__new__(cls, name, bases, attr, **kwargs)
+
+        setattr(new_cls, "__fields__", fields)
+        setattr(new_cls, "__str__", to_string)
+        setattr(new_cls, "__setattr__", setattr_)
+        setattr(new_cls, "__annotations", annotations)
+
+        return new_cls
+
+# Set the metaclass of the Record class
+class Record(metaclass=RecordMeta):
     pass
 
 # Usage of Record
@@ -66,7 +141,7 @@ class RecordTests(TestCase):
         self.assertEqual(james.age, 34)
         with self.assertRaises(AttributeError):
             james.age = 32
-    
+
     def test_str(self):
         james = Person(name="JAMES", age=34, income=24000.0)
         correct = dedent("""
@@ -89,3 +164,4 @@ class RecordTests(TestCase):
         
 if __name__ == '__main__':
     unittest.main()
+

@@ -56,7 +56,7 @@ def generate_code(annotations) -> str:
                 ', '.join((f'{arg}: {an.__qualname__}' for arg, an in annotations.items())))
             ]
     for arg, _ in annotations.items():
-        lines += [ f'  self.{arg} = check_precondition(self, "{arg}", {arg})', ]
+        lines += [ f'  self.{arg} = self.check_precondition("{arg}", {arg})', ]
 
     lines += [ '  self.__readonly = True' ]
     code = '\n'.join(lines)
@@ -90,6 +90,7 @@ class RecordMeta(type):
         setattr(new_cls, "__fields__", fields)
         setattr(new_cls, "__str__", to_string)
         setattr(new_cls, "__setattr__", setattr_)
+        setattr(new_cls, "check_precondition", check_precondition)
 
         return new_cls
 
